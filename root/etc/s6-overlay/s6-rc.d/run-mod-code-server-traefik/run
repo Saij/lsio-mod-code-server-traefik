@@ -17,7 +17,7 @@ TRAEFIK_DASHBOARD_AUTH=${TRAEFIK_DASHBOARD_AUTH:-""}
 
 TRAEFIK_LETSENCRYPT_ENABLED=${TRAEFIK_LETSENCRYPT_ENABLED:-"no"}
 TRAEFIK_LETSENCRYPT_EMAIL=${TRAEFIK_LETSENCRYPT_EMAIL:-""}
-TRAEFIK_LETSENCRYPT_DNS_PROVIDER=${TRAEFIK_LETSENCRYPT_DNS_PROVIDER:-""}
+TRAEFIK_LETSENCRYPT_TLSCHALLENGER=${TRAEFIK_LETSENCRYPT_TLSCHALLENGER:-"no"}
 
 echo "Starting Traefik on port ${TRAEFIK_PORT}"
 echo "Use URL ${TRAEFIK_DASHBOARD_URL} to access"
@@ -62,15 +62,6 @@ if [ "${TRAEFIK_LETSENCRYPT_ENABLED}" = "yes" ]; then
         chmod 600 /config/traefik/acme.json
     fi
 
-    OLD_IFS=${IFS}
-    IFS=$'\n'
-    for value in $(env | grep TRAEFIK_LETSENCRYPT_PROVIDER_DATA_ | sed -e s/TRAEFIK_LETSENCRYPT_PROVIDER_DATA_//); do
-        ENV="${ENV} \
-            -e ${value}
-        "
-    done
-    IFS=${OLD_IFS}
-
     VOLUMES="${VOLUMES} \
         -v /config/traefik/acme.json:/acme.json
     "
@@ -78,9 +69,13 @@ if [ "${TRAEFIK_LETSENCRYPT_ENABLED}" = "yes" ]; then
     LETSENCRYPT="\
         --certificatesResolvers.letsencrypt.acme.email=${TRAEFIK_LETSENCRYPT_EMAIL} \
         --certificatesResolvers.letsencrypt.acme.storage=/acme.json
-        --certificatesResolvers.letsencrypt.acme.dnsChallenge=true \
-        --certificatesResolvers.letsencrypt.acme.dnsChallenge.provider=${TRAEFIK_LETSENCRYPT_DNS_PROVIDER} \
     "
+
+    if [ "${TRAEFIK_LETSENCRYPT_TLSCHALLENGER}" = "yes" ]; then
+        LETSENCRYPT="${LETSENCRYPT} \
+            --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+        "
+    fi
 
     LABELS="${LABELS} \
         -l traefik.http.routers.dashboard.tls=true \
