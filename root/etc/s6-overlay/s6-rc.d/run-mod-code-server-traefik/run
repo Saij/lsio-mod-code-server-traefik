@@ -11,18 +11,24 @@ if !(docker network ls | grep -q traefik); then
     docker network create traefik
 fi
 
+TRAEFIK_PORT=${TRAEFIK_PORT:-80}
+TRAEFIK_DASHBOARD_URL=traefik.dev.ch-friedrich.net
+
 docker run \
     --rm \
     -d \
     --name traefik \
     --privileged \
-    -p 80:80 \
+    -p ${TRAEFIK_PORT}:80 \
     --network traefik \
     -v /var/run/docker.sock:/var/run/docker.sock \
     traefik:latest \
     --providers.docker \
-    --api \
-    --api.insecure \
-    --entrypoints.web.address=:80 \
     --providers.docker.exposedbydefault=false \
     --providers.docker.network=traefik \
+    --api.dashboard=true \
+    --entrypoints.web.address=":${TRAEFIK_PORT}" \
+    --http.middlewares.dashboardauth.basicauth.users="saij:\$2y\$05\$K2lkSTd7LwmHDQ0w/ls93uRf6P6khcRLHv3tlROKXrfw8kQgfoPV." \
+    --http.routers.dashboard.rule="Host(`${TRAEFIK_DASHBOARD_URL}`)" \
+    --http.routers.dashboard.service="api@internal" \
+    --http.routers.dashboard.middlewares="dashboardauth"
