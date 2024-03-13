@@ -12,7 +12,21 @@ if !(docker network ls | grep -q traefik); then
 fi
 
 TRAEFIK_PORT=${TRAEFIK_PORT:-80}
-TRAEFIK_DASHBOARD_URL=traefik.dev.ch-friedrich.net
+TRAEFIK_DASHBOARD_URL=${TRAEFIK_DASHBOARD_URL:-"traefik.localhost"}
+TRAEFIK_DASHBOARD_AUTH=${TRAEFIK_DASHBOARD_AUTH:-""}
+
+LABELS="\
+    -l traefik.enable=true \
+    -l traefik.http.routers.dashboard.rule=Host(\`${TRAEFIK_DASHBOARD_URL}\`) \
+    -l traefik.http.routers.dashboard.service=api@internal \
+"
+
+if [ -z ${TRAEFIK_DASHBOARD_AUTH+x} ]; then
+    LABELS="${LABELS}\
+        -l traefik.http.routers.dashboard.middlewares=dashboardauth \
+        -l traefik.http.middlewares.dashboardauth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH} \
+    "
+fi
 
 docker run \
     --rm \
@@ -22,13 +36,10 @@ docker run \
     -p ${TRAEFIK_PORT}:80 \
     --network traefik \
     -v /var/run/docker.sock:/var/run/docker.sock \
+    ${LABELS} \
     traefik:latest \
     --providers.docker \
     --providers.docker.exposedbydefault=false \
     --providers.docker.network=traefik \
     --api.dashboard=true \
-    --entrypoints.web.address=":${TRAEFIK_PORT}" \
-    --http.middlewares.dashboardauth.basicauth.users="saij:\$2y\$05\$K2lkSTd7LwmHDQ0w/ls93uRf6P6khcRLHv3tlROKXrfw8kQgfoPV." \
-    --http.routers.dashboard.rule="Host(`${TRAEFIK_DASHBOARD_URL}`)" \
-    --http.routers.dashboard.service="api@internal" \
-    --http.routers.dashboard.middlewares="dashboardauth"
+    --entrypoints.web.address=":${TRAEFIK_PORT}"
