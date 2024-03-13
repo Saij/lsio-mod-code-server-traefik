@@ -32,7 +32,7 @@ LABELS="\
     -l traefik.http.routers.dashboard.entrypoints=web \
 "
 
-if [ ! -z "${TRAEFIK_DASHBOARD_AUTH+x}" ]; then
+if [ ! -z "${TRAEFIK_DASHBOARD_AUTH}" ]; then
     echo "Dashboard authentification enabled"
 
     LABELS="${LABELS} \
@@ -43,13 +43,8 @@ fi
 
 LETSENCRYPT=""
 if [ "${TRAEFIK_LETSENCRYPT_ENABLED}" = "yes" ]; then
-    if [ -z "${TRAEFIK_LETSENCRYPT_EMAIL+x}" ]; then
+    if [ -z "${TRAEFIK_LETSENCRYPT_EMAIL}" ]; then
         echo "Traefik: missing e-mail address for Let's Encrypt activation!"
-        exit 1
-    fi
-
-    if [ -z "${TRAEFIK_LETSENCRYPT_DNS_PROVIDER+x}" ]; then
-        echo "Traefik: missing DNS provider for Let's Encrypt activation!"
         exit 1
     fi
 
@@ -68,7 +63,9 @@ if [ "${TRAEFIK_LETSENCRYPT_ENABLED}" = "yes" ]; then
 
     LETSENCRYPT="\
         --certificatesResolvers.letsencrypt.acme.email=${TRAEFIK_LETSENCRYPT_EMAIL} \
-        --certificatesResolvers.letsencrypt.acme.storage=/acme.json
+        --certificatesResolvers.letsencrypt.acme.storage=/acme.json \
+        --entrypoints.web.http.tls=true \
+        --entrypoints.web.http.tls.certresolver=letsencrypt \
     "
 
     if [ "${TRAEFIK_LETSENCRYPT_TLSCHALLENGER}" = "yes" ]; then
@@ -76,11 +73,6 @@ if [ "${TRAEFIK_LETSENCRYPT_ENABLED}" = "yes" ]; then
             --certificatesresolvers.letsencrypt.acme.tlschallenge=true
         "
     fi
-
-    LABELS="${LABELS} \
-        -l traefik.http.routers.dashboard.tls=true \
-        -l traefik.http.routers.dashboard.tls.certresolver=letsencrypt \
-    "
 fi
 
 docker run \
