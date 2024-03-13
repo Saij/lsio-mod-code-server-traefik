@@ -20,7 +20,10 @@ TRAEFIK_LETSENCRYPT_EMAIL=${TRAEFIK_LETSENCRYPT_EMAIL:-""}
 TRAEFIK_LETSENCRYPT_DNS_PROVIDER=${TRAEFIK_LETSENCRYPT_DNS_PROVIDER:-""}
 
 echo "Starting Traefik on port ${TRAEFIK_PORT}"
-echo "Use URL ${TRAFIK_DASHBOARD_URL} to access"
+echo "Use URL ${TRAEFIK_DASHBOARD_URL} to access"
+
+VOLUMES=""
+ENV=""
 
 LABELS="\
     -l traefik.enable=true \
@@ -32,7 +35,7 @@ LABELS="\
 if [ ! -z "${TRAEFIK_DASHBOARD_AUTH+x}" ]; then
     echo "Dashboard authentification enabled"
 
-    LABELS="${LABELS}\
+    LABELS="${LABELS} \
         -l traefik.http.routers.dashboard.middlewares=dashboardauth \
         -l traefik.http.middlewares.dashboardauth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH} \
     "
@@ -56,13 +59,32 @@ if [ "${TRAEFIK_LETSENCRYPT_ENABLED}" = "yes" ]; then
 
     if [ ! -f /config/traefik/acme.json ]; then
         touch /config/traefik/acme.json
+        chmod 600 /config/traefik/acme.json
     fi
+
+    OLD_IFS=${IFS}
+    IFS=$'\n'
+    for value in $(env | grep TRAEFIK_LETSENCRYPT_PROVIDER_DATA_ | sed -e s/TRAEFIK_LETSENCRYPT_PROVIDER_DATA_//); do
+        ENV="${ENV} \
+            -e ${value}
+        "
+    done
+    IFS=${OLD_IFS}
+
+    VOLUMES="${VOLUMES} \
+        -v /config/traefik/acme.json:/acme.json
+    "
 
     LETSENCRYPT="\
         --certificatesResolvers.letsencrypt.acme.email=${TRAEFIK_LETSENCRYPT_EMAIL} \
-        --certificatesResolvers.myresolver.acme.storage=/config/traefik/acme.json
+        --certificatesResolvers.letsencrypt.acme.storage=/acme.json
         --certificatesResolvers.letsencrypt.acme.dnsChallenge=true \
-        --certificatesResolvers.myresolver.acme.dnsChallenge.provider=${TRAEFIK_LETSENCRYPT_DNS_PROVIDER} \
+        --certificatesResolvers.letsencrypt.acme.dnsChallenge.provider=${TRAEFIK_LETSENCRYPT_DNS_PROVIDER} \
+    "
+
+    LABELS="${LABELS} \
+        -l traefik.http.routers.dashboard.tls=true \
+        -l traefik.http.routers.dashboard.tls.certresolver=letsencrypt \
     "
 fi
 
@@ -74,7 +96,9 @@ docker run \
     -p ${TRAEFIK_PORT}:${TRAEFIK_PORT} \
     --network traefik \
     -v /var/run/docker.sock:/var/run/docker.sock \
+    ${VOLUMES} \
     ${LABELS} \
+    ${ENV} \
     traefik:latest \
     --providers.docker \
     --providers.docker.exposedbydefault=false \
