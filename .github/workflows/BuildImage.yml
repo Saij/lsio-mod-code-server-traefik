@@ -3,10 +3,10 @@ name: Build Image
 on: [push, pull_request_target, workflow_dispatch]
 
 env:
-  GITHUB_REPO: "saij/lsio-mod-code-server-php-cli"
+  GITHUB_REPO: "saij/lsio-mod-code-server-traefik"
   ENDPOINT: "saij/lsio-mods"
   BASEIMAGE: "code-server"
-  MODNAME: "php-cli"
+  MODNAME: "traefik"
   MULTI_ARCH: "true"
 
 jobs:
