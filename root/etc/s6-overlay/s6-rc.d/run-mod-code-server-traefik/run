@@ -17,7 +17,7 @@ TRAEFIK_DASHBOARD_AUTH=${TRAEFIK_DASHBOARD_AUTH:-""}
 
 TRAEFIK_LETSENCRYPT_ENABLED=${TRAEFIK_LETSENCRYPT_ENABLED:-"no"}
 TRAEFIK_LETSENCRYPT_EMAIL=${TRAEFIK_LETSENCRYPT_EMAIL:-""}
-TRAEFIK_LETSENCRYPT_TLSCHALLENGER=${TRAEFIK_LETSENCRYPT_TLSCHALLENGER:-"no"}
+TRAEFIK_LETSENCRYPT_TLSCHALLENGE=${TRAEFIK_LETSENCRYPT_TLSCHALLENGE:-"no"}
 
 echo "Starting Traefik on port ${TRAEFIK_PORT}"
 echo "Use URL ${TRAEFIK_DASHBOARD_URL} to access"
@@ -68,7 +68,7 @@ if [ "${TRAEFIK_LETSENCRYPT_ENABLED}" = "yes" ]; then
         --entrypoints.web.http.tls.certresolver=letsencrypt \
     "
 
-    if [ "${TRAEFIK_LETSENCRYPT_TLSCHALLENGER}" = "yes" ]; then
+    if [ "${TRAEFIK_LETSENCRYPT_TLSCHALLENGE}" = "yes" ]; then
         LETSENCRYPT="${LETSENCRYPT} \
             --certificatesresolvers.letsencrypt.acme.tlschallenge=true
         "
