@@ -12,10 +12,12 @@ if !(docker network ls | grep -q traefik); then
 fi
 
 TRAEFIK_PORT=${TRAEFIK_PORT:-80}
-TRAEFIK_PORT_SSL=${TRAEFIK_PORT_SSL:-443}
 TRAEFIK_DASHBOARD_URL=${TRAEFIK_DASHBOARD_URL:-"traefik.localhost"}
 TRAEFIK_DASHBOARD_AUTH=${TRAEFIK_DASHBOARD_AUTH:-""}
-TRAEFIK_CONFIG_FILE=${TRAEFIK_CONFIG_FILE:-""}
+
+TRAEFIK_LETSENCRYPT_ENABLED=${TRAEFIK_LETSENCRYPT_ENABLED:-"no"}
+TRAEFIK_LETSENCRYPT_EMAIL=${TRAEFIK_LETSENCRYPT_EMAIL:-""}
+TRAEFIK_LETSENCRYPT_DNS_PROVIDER=${TRAEFIK_LETSENCRYPT_DNS_PROVIDER:-""}
 
 echo "Starting Traefik on port ${TRAEFIK_PORT}"
 echo "Use URL ${TRAFIK_DASHBOARD_URL} to access"
@@ -24,9 +26,10 @@ LABELS="\
     -l traefik.enable=true \
     -l traefik.http.routers.dashboard.rule=Host(\`${TRAEFIK_DASHBOARD_URL}\`) \
     -l traefik.http.routers.dashboard.service=api@internal \
+    -l traefik.http.routers.dashboard.entrypoints=web \
 "
 
-if [ ! -z ${TRAEFIK_DASHBOARD_AUTH+x} ]; then
+if [ ! -z "${TRAEFIK_DASHBOARD_AUTH+x}" ]; then
     echo "Dashboard authentification enabled"
 
     LABELS="${LABELS}\
@@ -35,9 +38,32 @@ if [ ! -z ${TRAEFIK_DASHBOARD_AUTH+x} ]; then
     "
 fi
 
-CONFIG_FILE=""
-if [ ! -z ${TRAEFIK_CONFIG_FILE} ]; then
-    CONFIG_FILE = "-v ${TRAEFIK_CONFIG_FILE}:/etc/traefik/traefik.yml"
+LETSENCRYPT=""
+if [ "${TRAEFIK_LETSENCRYPT_ENABLED}" = "yes" ]; then
+    if [ -z "${TRAEFIK_LETSENCRYPT_EMAIL+x}" ]; then
+        echo "Traefik: missing e-mail address for Let's Encrypt activation!"
+        exit 1
+    fi
+
+    if [ -z "${TRAEFIK_LETSENCRYPT_DNS_PROVIDER+x}" ]; then
+        echo "Traefik: missing DNS provider for Let's Encrypt activation!"
+        exit 1
+    fi
+
+    if [ ! -d /config/traefik ]; then
+        mkdir -p /config/traefik
+    fi
+
+    if [ ! -f /config/traefik/acme.json ]; then
+        touch /config/traefik/acme.json
+    fi
+
+    LETSENCRYPT="\
+        --certificatesResolvers.letsencrypt.acme.email=${TRAEFIK_LETSENCRYPT_EMAIL} \
+        --certificatesResolvers.myresolver.acme.storage=/config/traefik/acme.json
+        --certificatesResolvers.letsencrypt.acme.dnsChallenge=true \
+        --certificatesResolvers.myresolver.acme.dnsChallenge.provider=${TRAEFIK_LETSENCRYPT_DNS_PROVIDER} \
+    "
 fi
 
 docker run \
@@ -46,10 +72,8 @@ docker run \
     --name traefik \
     --privileged \
     -p ${TRAEFIK_PORT}:${TRAEFIK_PORT} \
-    -p ${TRAEFIK_PORT_SSL}:${TRAEFIK_PORT_SSL} \
     --network traefik \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    ${CONFIG_FILE} \
     ${LABELS} \
     traefik:latest \
     --providers.docker \
@@ -57,4 +81,4 @@ docker run \
     --providers.docker.network=traefik \
     --api.dashboard=true \
     --entrypoints.web.address=":${TRAEFIK_PORT}" \
-    --entrypoints.websecure.address=":${TRAEFIK_PORT_SSL}"
+    ${LETSENCRYPT}
